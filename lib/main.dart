@@ -3,6 +3,7 @@ import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
+import 'device_data.dart';
 
 void main() {
   runApp(const MyApp());
@@ -32,10 +33,12 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin { // 변경된 부분
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
+  // 변경된 부분
   late IOWebSocketChannel channel;
   late TabController _tabController;
   List<String> macAddresses = [];
+  Map<String, DeviceData> deviceDataMap = {};
 
   @override
   void initState() {
@@ -47,18 +50,34 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void _onMessage(dynamic message) {
     final jsonResponse = json.decode(message);
-    Isolate.spawn(_processData, jsonResponse);
 
     if (jsonResponse != null && jsonResponse['macaddr'] != null) {
       String macaddr = jsonResponse['macaddr'];
+      int rssival = jsonResponse['rssival'] ?? 'N/A';
+      double kalmanval = jsonResponse['kalmanval'].toDouble() ?? 'N/A';
+      String measuretime = jsonResponse['measuretime'] ?? 'N/A';
+      int scancnt = jsonResponse['scancnt'] ?? 'N/A';
+
+      DeviceData deviceData = DeviceData(
+        macaddr: macaddr,
+        rssival: rssival,
+        kalmanval: kalmanval,
+        measuretime: measuretime,
+        scancnt: scancnt,
+      );
+
       if (!macAddresses.contains(macaddr)) {
         setState(() {
           macAddresses.add(macaddr);
-          // TabController 재생성 시 기존의 TabController를 dispose
-          _tabController.dispose(); // 추가된 부분
-          _tabController = TabController(length: macAddresses.length, vsync: this);
+          _tabController.dispose();
+          _tabController =
+              TabController(length: macAddresses.length, vsync: this);
         });
       }
+
+      setState(() {
+        deviceDataMap[macaddr] = deviceData;
+      });
     }
   }
 
@@ -68,10 +87,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 
   void _addTab(String macaddr) {
-    if (!macAddresses.contains(macaddr)) { // 새로운 macaddr인 경우에만 추가
+    if (!macAddresses.contains(macaddr)) {
+      // 새로운 macaddr인 경우에만 추가
       setState(() {
         macAddresses.add(macaddr);
-        _tabController = TabController(length: macAddresses.length, vsync: this);
+        _tabController =
+            TabController(length: macAddresses.length, vsync: this);
       });
     }
   }
@@ -90,8 +111,17 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       body: TabBarView(
         controller: _tabController,
         children: macAddresses.map((macaddr) {
+          final data = deviceDataMap[macaddr];
           return Center(
-            child: Text('Data for $macaddr'),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('RSSI Value: ${data?.rssival ?? 'N/A'}'),
+                Text('Kalman Value: ${data?.kalmanval ?? 'N/A'}'),
+                Text('Measure Time: ${data?.measuretime ?? 'N/A'}'),
+                Text('Scan Count: ${data?.scancnt ?? 'N/A'}'),
+              ],
+            ),
           );
         }).toList(),
       ),
