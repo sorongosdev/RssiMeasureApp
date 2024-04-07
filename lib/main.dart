@@ -32,25 +32,48 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin { // 변경된 부분
   late IOWebSocketChannel channel;
+  late TabController _tabController;
+  List<String> macAddresses = [];
 
   @override
   void initState() {
     super.initState();
-    // 웹소켓 서버 주소를 실제 주소로 변경해주세요.
     channel = IOWebSocketChannel.connect('ws://192.168.1.102:8080');
     channel.stream.listen(_onMessage);
+    _tabController = TabController(length: 0, vsync: this);
   }
 
   void _onMessage(dynamic message) {
     final jsonResponse = json.decode(message);
     Isolate.spawn(_processData, jsonResponse);
+
+    if (jsonResponse != null && jsonResponse['macaddr'] != null) {
+      String macaddr = jsonResponse['macaddr'];
+      if (!macAddresses.contains(macaddr)) {
+        setState(() {
+          macAddresses.add(macaddr);
+          // TabController 재생성 시 기존의 TabController를 dispose
+          _tabController.dispose(); // 추가된 부분
+          _tabController = TabController(length: macAddresses.length, vsync: this);
+        });
+      }
+    }
   }
 
   static void _processData(dynamic data) {
     // 데이터 처리 로직. 여기서는 로그 출력으로 간단하게 처리.
     print('Received data: $data');
+  }
+
+  void _addTab(String macaddr) {
+    if (!macAddresses.contains(macaddr)) { // 새로운 macaddr인 경우에만 추가
+      setState(() {
+        macAddresses.add(macaddr);
+        _tabController = TabController(length: macAddresses.length, vsync: this);
+      });
+    }
   }
 
   @override
@@ -59,6 +82,18 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(),
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: macAddresses.map((macaddr) {
+          return Center(
+            child: Text('Data for $macaddr'),
+          );
+        }).toList(),
       ),
     );
   }
@@ -66,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     channel.sink.close();
+    _tabController.dispose();
     super.dispose();
   }
 }
