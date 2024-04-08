@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:isolate';
 
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'device_data.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   runApp(const MyApp());
@@ -52,11 +52,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   void _updateProgress() {
     // 현재 탭의 인덱스를 기반으로 프로그레스 바의 값을 업데이트하는 함수
+    print("rssi: _tabController.length ${_tabController.length}");
     if (_tabController.length > 1) {
       setState(() {
         _progress = _tabController.index / (_tabController.length - 1);
       });
-
       print("rssi: progress $_progress");
     }
   }
@@ -129,10 +129,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('RSSI Value: ${data?.rssival ?? 'N/A'}'),
-                Text('Kalman Value: ${data?.kalmanval ?? 'N/A'}'),
-                Text('Measure Time: ${data?.measuretime ?? 'N/A'}'),
-                Text('Scan Count: ${data?.scancnt ?? 'N/A'}'),
+                Text('Mac Address: ${data?.macaddr ?? ''}'), // string
+                Text('RSSI Value: ${data?.rssival ?? 0}'), // int
+                Text('Kalman Value: ${data?.kalmanval ?? 0.0}'), // double
+                Text('Measure Time: ${data?.measuretime ?? ''}'), // string
+                Text('Scan Count: ${data?.scancnt ?? 0}'), // int
               ],
             ),
           );
