@@ -39,6 +39,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late TabController _tabController;
   List<String> macAddresses = [];
   Map<String, DeviceData> deviceDataMap = {};
+  double _progress = 0.0; // 프로그레스 바의 진행 상태를 저장할 변수 추가
 
   @override
   void initState() {
@@ -46,10 +47,24 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     channel = IOWebSocketChannel.connect('ws://192.168.1.105:8080');
     channel.stream.listen(_onMessage);
     _tabController = TabController(length: 0, vsync: this);
+    _tabController.addListener(_updateProgress); // TabController에 리스너 추가
+  }
+
+  void _updateProgress() {
+    // 현재 탭의 인덱스를 기반으로 프로그레스 바의 값을 업데이트하는 함수
+    if (_tabController.length > 1) {
+      setState(() {
+        _progress = _tabController.index / (_tabController.length - 1);
+      });
+
+      print("rssi: progress $_progress");
+    }
   }
 
   void _onMessage(dynamic message) {
     final jsonResponse = json.decode(message);
+
+    print("rssi: json msg $message");
 
     if (jsonResponse != null && jsonResponse['macaddr'] != null) {
       String macaddr = jsonResponse['macaddr'];
@@ -81,32 +96,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     }
   }
 
-  static void _processData(dynamic data) {
-    // 데이터 처리 로직. 여기서는 로그 출력으로 간단하게 처리.
-    print('Received data: $data');
-  }
-
-  void _addTab(String macaddr) {
-    if (!macAddresses.contains(macaddr)) {
-      // 새로운 macaddr인 경우에만 추가
-      setState(() {
-        macAddresses.add(macaddr);
-        _tabController =
-            TabController(length: macAddresses.length, vsync: this);
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(50.0), // TabBar와 프로그레스 바를 포함할 공간 확보
+          child: Column(
+            children: [
+              LinearProgressIndicator(
+                value: _progress, // 프로그레스 바의 값
+                minHeight: 4.0, // 프로그레스 바의 높이 설정
+                backgroundColor: Colors.grey, // 프로그레스 바의 배경색 설정
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue), // 프로그레스 바의 색상 설정
+              ),
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(),
+              ),
+            ],
+          ),
         ),
       ),
       body: TabBarView(
@@ -132,6 +144,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   void dispose() {
     channel.sink.close();
+    _tabController.removeListener(_updateProgress); // 리스너 제거
     _tabController.dispose();
     super.dispose();
   }
