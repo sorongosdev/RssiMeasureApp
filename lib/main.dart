@@ -56,6 +56,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     });
   }
 
+  /// 서버에서 받아온 메시지를 처리하는 함수
   void _onMessage(dynamic message) {
     // 메시지를 JSON 형태로 디코딩
     final jsonResponse = json.decode(message);
@@ -66,7 +67,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     // JSON 응답이 유효하고 'macaddr' 키가 존재하는지 확인
     if (jsonResponse != null && jsonResponse['macaddr'] != null) {
       // jsonResponse에서 필요한 데이터 추출, 값이 없으면 0 또는 빈 문자열로 대체
-      String macaddr = jsonResponse['macaddr'];
+      String macaddr = jsonResponse['macaddr'] ?? '';
       int rssival = jsonResponse['rssival'] ?? 0;
       double kalmanval = jsonResponse['kalmanval'].toDouble() ?? 0.0;
       String measuretime = jsonResponse['measuretime'] ?? '';
@@ -135,57 +136,100 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    // Scaffold 위젯을 반환하여 앱의 기본 레이아웃을 구성
     return Scaffold(
       appBar: AppBar(
+        // AppBar의 배경색을 앱 테마의 inversePrimary 색상으로 설정
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(
-            '${widget.title} (${_currentTabIndex + 1}/${_tabController.length})'), // 현재 선택된 탭 정보 표시
+        // AppBar의 제목 설정. 현재 선택된 탭의 인덱스와 전체 탭의 수를 표시
+        title: Text('${widget.title} (${_currentTabIndex + 1}/${_tabController.length})'),
+        // AppBar 하단에 추가적인 위젯을 배치하기 위한 설정
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50.0),
-          // TabBar와 프로그레스 바를 포함할 공간 확보
+          preferredSize: const Size.fromHeight(50.0), // 하단 위젯의 높이 설정
+          // Column 위젯을 사용하여 TabBar와 추가적인 위젯들을 세로로 배치
           child: Column(
             children: [
+              // TabBar 위젯을 사용하여 탭을 표시. 각 탭은 MAC 주소를 표시
               TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs:
-                    macAddresses.map((macaddr) => Tab(text: macaddr)).toList(),
+                controller: _tabController, // TabBar 컨트롤러 설정
+                isScrollable: true, // 여러 탭이 있을 경우 스크롤 가능하게 설정
+                tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(), // MAC 주소 리스트를 사용하여 탭 생성
               ),
             ],
           ),
         ),
       ),
+      // TabBarView를 사용하여 각 탭에 해당하는 내용을 표시
       body: TabBarView(
-        controller: _tabController,
+        controller: _tabController, // TabBarView 컨트롤러 설정
         children: macAddresses.map((macaddr) {
+          // 각 MAC 주소에 해당하는 데이터를 deviceDataMap에서 추출
           final data = deviceDataMap[macaddr];
+          // 추출된 데이터를 사용하여 화면 구성
           return Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start, // 좌측 정렬
+              mainAxisAlignment: MainAxisAlignment.center, // 세로 방향으로 중앙 정렬
+              crossAxisAlignment: CrossAxisAlignment.start, // 가로 방향으로 좌측 정렬
               children: [
-                Text('Mac Address: ${data?.macaddr ?? ''}',
-                    style: TextStyle(fontSize: 16.0)), // 텍스트 사이즈 조정
+                // MAC 주소, RSSI 값, Kalman 값, 측정 시간, 스캔 횟수를 텍스트로 표시
+                // 각각의 값이 없을 경우를 대비하여 기본값 설정
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 22.0, color: Colors.black, fontWeight: FontWeight.bold), // 기본 스타일
+                    children: [
+                      TextSpan(text: 'Mac Address: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${data?.macaddr ?? ''}'),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 8.0),
-                Text('RSSI Value: ${data?.rssival ?? 0}',
-                    style: TextStyle(fontSize: 16.0)), // 텍스트 사이즈 조정
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 18.0, color: Colors.black),
+                    children: [
+                      TextSpan(text: 'RSSI Value: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${data?.rssival ?? 0}'),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 8.0),
-                Text('Kalman Value: ${data?.kalmanval ?? 0.0}',
-                    style: TextStyle(fontSize: 16.0)), // 텍스트 사이즈 조정
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 18.0, color: Colors.black),
+                    children: [
+                      TextSpan(text: 'Kalman Value: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${data?.kalmanval ?? 0.0}'),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 8.0),
-                Text(
-                    'Measure Time: ${formatMeasureTime(data?.measuretime ?? '')}',
-                    style: TextStyle(fontSize: 16.0)), // 텍스트 사이즈 조정
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 18.0, color: Colors.black),
+                    children: [
+                      TextSpan(text: 'Measure Time: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${formatMeasureTime(data?.measuretime ?? '')}', style: TextStyle(fontSize: 15.0)),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 8.0),
-                Text('Scan Count: ${data?.scancnt ?? 0}',
-                    style: TextStyle(fontSize: 16.0)), // 텍스트 사이즈 조정
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(fontSize: 18.0, color: Colors.black),
+                    children: [
+                      TextSpan(text: 'Scan Count: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${data?.scancnt ?? 0}'),
+                    ],
+                  ),
+                ),
               ],
             ),
           );
-        }).toList(),
+        }).toList(), // MAC 주소 리스트를 기반으로 위젯 리스트 생성
       ),
     );
   }
+
 
   @override
   void dispose() {
