@@ -43,7 +43,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    channel = IOWebSocketChannel.connect('ws://192.168.1.102:8080');
+    channel = IOWebSocketChannel.connect('ws://192.168.1.105:8080');
     channel.stream.listen(_onMessage);
     _tabController = TabController(length: 0, vsync: this);
   }
@@ -105,6 +105,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         title: Text(widget.title),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(),
         ),
       ),
