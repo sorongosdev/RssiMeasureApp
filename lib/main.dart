@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:rssi_measure_app/constants/rssi_consts.dart';
 import 'package:web_socket_channel/io.dart';
 import 'device_data.dart';
 import 'package:intl/intl.dart';
+
+import 'my_appbar.dart';
 
 void main() {
   runApp(const MyApp());
@@ -43,7 +46,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    channel = IOWebSocketChannel.connect('ws://192.168.1.102:8080'); // 웹소켓 채널
+    channel = IOWebSocketChannel.connect(RssiConsts.MY_URL_test); // 웹소켓 채널
     channel.stream.listen(_onMessage);
     _tabController = TabController(length: 0, vsync: this);
     _tabController.addListener(() {
@@ -138,26 +141,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     // Scaffold 위젯을 반환하여 앱의 기본 레이아웃을 구성
     return Scaffold(
-      appBar: AppBar(
-        // AppBar의 배경색을 앱 테마의 inversePrimary 색상으로 설정
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // AppBar의 제목 설정. 현재 선택된 탭의 인덱스와 전체 탭의 수를 표시
-        title: Text('${widget.title} (${_currentTabIndex + 1}/${_tabController.length})'),
-        // AppBar 하단에 추가적인 위젯을 배치하기 위한 설정
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50.0), // 하단 위젯의 높이 설정
-          // Column 위젯을 사용하여 TabBar와 추가적인 위젯들을 세로로 배치
-          child: Column(
-            children: [
-              // TabBar 위젯을 사용하여 탭을 표시. 각 탭은 MAC 주소를 표시
-              TabBar(
-                controller: _tabController, // TabBar 컨트롤러 설정
-                isScrollable: true, // 여러 탭이 있을 경우 스크롤 가능하게 설정
-                tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(), // MAC 주소 리스트를 사용하여 탭 생성
-              ),
-            ],
-          ),
-        ),
+      appBar: MyAppBar(
+        title: widget.title,
+        tabController: _tabController,
+        macAddresses: macAddresses,
       ),
       // TabBarView를 사용하여 각 탭에 해당하는 내용을 표시
       body: TabBarView(
