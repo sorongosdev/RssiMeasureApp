@@ -41,7 +41,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late TabController _tabController; // 탭 컨트롤러
   List<String> macAddresses = []; // 탭 제목을 표시하기 위한 macaddr만을 저장하는 변수
   Map<String, DeviceData> deviceDataMap = {}; // <macaddr, 서버에서 받아온 정보들>
-  Map<int, Map<String, DeviceData>> menuMap = {}; // 1 : {macaddr, 서버에서 받아온 정보들}
+  Map<int, Map<String, DeviceData>> menuMap = {0:{},1:{}}; // 1 : {macaddr, 서버에서 받아온 정보들}
   int _currentTabIndex = 0; // 현재 선택된 탭의 인덱스를 추적하는 변수
 
   @override
@@ -96,6 +96,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         scancnt: scancnt,
       );
 
+      //TODO : message가 들어오면 menuMap에 추가를 해줘야하고, 탭뷰 ui 변경을 요청해야함
       setState(() {
         // menuMap에 device 아이디를 사용하여 데이터 추가 또는 업데이트
         if (!menuMap.containsKey(device)) {
@@ -130,8 +131,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
     // 선택된 디바이스 ID에 해당하는 menuMap에서 데이터를 가져옴
     deviceDataMap = menuMap[deviceId]!;
+
+    print("setTab: onDeviceSelected deviceDataMap ${deviceDataMap.length}");
+
     setState(() {
+      print("setTab: onDeviceSelected setState");
+
       macAddresses = deviceDataMap.keys.toList(); // MAC 주소 목록 업데이트
+      print("setTab: onDeviceSelected macAddresses $macAddresses");
+
       int previousIndex = _tabController.index; // 현재 인덱스를 저장
       _tabController.dispose(); // 기존 탭 컨트롤러 해제
 
@@ -141,12 +149,17 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           vsync: this,
           initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
 
+      print("setTab: onDeviceSelected _tabController");
+
       // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
       _tabController.addListener(() {
         if (!_tabController.indexIsChanging) {
           _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
         }
       });
+
+      print("setTab: onDeviceSelected _tabController.addListener");
+
     });
   }
 

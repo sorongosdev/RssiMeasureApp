@@ -26,6 +26,22 @@ class _MyAppBarState extends State<MyAppBar> {
   String title = '기본 제목'; // 초기 제목 설정
 
   @override
+  void initState() {
+    super.initState();
+    print("setTab: initState");
+    // initState가 완료된 후 실행될 콜백을 스케줄링
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onDeviceSelected(0); // 첫 번째 디바이스를 자동으로 선택
+      setState(() {
+        print("setTab: setState");
+
+        title = '디바이스 0'; // 제목 업데이트
+      });
+    });
+  }
+
+
+  @override
   Widget build(BuildContext context) {
     return AppBar(
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
