@@ -98,7 +98,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
       //TODO : message가 들어오면 menuMap에 추가를 해줘야하고, 탭뷰 ui 변경을 요청해야함
       setState(() {
-        // menuMap에 device 아이디를 사용하여 데이터 추가 또는 업데이트
+        // menuMap에 device 아이디를 사용하여 데이터 추가 또는 업데이트, 현재 동작X
         if (!menuMap.containsKey(device)) {
           menuMap[device] = {};
         }
@@ -106,6 +106,33 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         print("rssi: menuMap $menuMap");
       });
     }
+  }
+
+  // 드롭다운에서 디바이스 이름이 선택됐을 때 콜백, 해당 디바이스에 해당하는 정보를 가져와 탭을 업데이트
+  void onDeviceSelected(int deviceId) {
+    // 선택된 디바이스 ID에 해당하는 menuMap에서 데이터를 가져옴
+    deviceDataMap = menuMap[deviceId]!;
+
+    setState(() {
+
+      macAddresses = deviceDataMap.keys.toList(); // MAC 주소 목록 업데이트
+
+      int previousIndex = _tabController.index; // 현재 인덱스를 저장
+      _tabController.dispose(); // 기존 탭 컨트롤러 해제
+
+      // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
+      _tabController = TabController(
+          length: macAddresses.length,
+          vsync: this,
+          initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
+
+      // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
+      _tabController.addListener(() {
+        if (!_tabController.indexIsChanging) {
+          _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
+        }
+      });
+    });
   }
 
   /// '2024-03-30 02:41:24.736000' -> '2024년 3월 30일 2시 41분 24초'로 포맷을 변경해주는 함수
@@ -123,44 +150,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       print("Error parsing measuretime: $e");
       return '';
     }
-  }
-
-  // 드롭다운에서 디바이스 이름이 선택됐을 때 콜백, 해당 디바이스에 해당하는 정보를 가져와 탭을 업데이트
-  void onDeviceSelected(int deviceId) {
-    print("setTab: onDeviceSelected $deviceId");
-
-    // 선택된 디바이스 ID에 해당하는 menuMap에서 데이터를 가져옴
-    deviceDataMap = menuMap[deviceId]!;
-
-    print("setTab: onDeviceSelected deviceDataMap ${deviceDataMap.length}");
-
-    setState(() {
-      print("setTab: onDeviceSelected setState");
-
-      macAddresses = deviceDataMap.keys.toList(); // MAC 주소 목록 업데이트
-      print("setTab: onDeviceSelected macAddresses $macAddresses");
-
-      int previousIndex = _tabController.index; // 현재 인덱스를 저장
-      _tabController.dispose(); // 기존 탭 컨트롤러 해제
-
-      // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
-      _tabController = TabController(
-          length: macAddresses.length,
-          vsync: this,
-          initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
-
-      print("setTab: onDeviceSelected _tabController");
-
-      // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
-      _tabController.addListener(() {
-        if (!_tabController.indexIsChanging) {
-          _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
-        }
-      });
-
-      print("setTab: onDeviceSelected _tabController.addListener");
-
-    });
   }
 
   @override
