@@ -6,12 +6,13 @@ class MyAppBar extends StatefulWidget implements PreferredSizeWidget {
   late final String title;
   final TabController tabController;
   final List<String> macAddresses;
-  final Function(int deviceId) onDeviceSelected; // 선택된 디바이스에 따라 액션을 정의하기 위한 콜백
+  final ValueNotifier<int> selectedDeviceId;
 
   MyAppBar(
       {required this.tabController,
       required this.macAddresses,
-      required this.onDeviceSelected});
+      required this.selectedDeviceId
+      });
 
   @override
   _MyAppBarState createState() => _MyAppBarState();
@@ -25,28 +26,34 @@ class MyAppBar extends StatefulWidget implements PreferredSizeWidget {
 class _MyAppBarState extends State<MyAppBar> {
   String title = '기본 제목'; // 초기 제목 설정
 
-  @override
-  void initState() {
-    super.initState();
-    print("setTab: initState");
-    // initState가 완료된 후 실행될 콜백을 스케줄링
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      widget.onDeviceSelected(0); // 첫 번째 디바이스를 자동으로 선택
-      setState(() {
-        print("setTab: setState");
-
-        title = '디바이스 0'; // 제목 업데이트
-      });
-    });
-  }
-
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   print("setTab: initState");
+  //   // initState가 완료된 후 실행될 콜백을 스케줄링
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     widget.onDeviceSelected(0); // 첫 번째 디바이스를 자동으로 선택
+  //     setState(() {
+  //       print("setTab: setState");
+  //
+  //       title = '디바이스 0'; // 제목 업데이트
+  //     });
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      title: Text(
-          '$title (${widget.tabController.index + 1}/${widget.tabController.length})'),
+      title: ValueListenableBuilder<int>(
+        valueListenable: widget.selectedDeviceId,
+        builder: (context, selectedDeviceId, child) {
+          return Text(
+              '디바이스 $selectedDeviceId (${widget.tabController.index + 1}/${widget.tabController.length})');
+        },
+      ),
+      // title: Text(
+      //     '$title (${widget.tabController.index + 1}/${widget.tabController.length})'),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(50.0),
         child: Column(
@@ -65,7 +72,8 @@ class _MyAppBarState extends State<MyAppBar> {
         PopupMenuButton<int>(
           icon: Icon(Icons.arrow_drop_down),
           onSelected: (int deviceId) {
-            widget.onDeviceSelected(deviceId); // 선택된 디바이스 ID에 따라 외부에서 정의된 액션 실행
+            widget.selectedDeviceId.value = deviceId;
+            // TODO : 탭뷰 업데이트,
             setState(() {
               title = '디바이스 $deviceId'; // 제목 업데이트
             });

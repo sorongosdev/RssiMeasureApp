@@ -41,8 +41,12 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late TabController _tabController; // 탭 컨트롤러
   List<String> macAddresses = []; // 탭 제목을 표시하기 위한 macaddr만을 저장하는 변수
   Map<String, DeviceData> deviceDataMap = {}; // <macaddr, 서버에서 받아온 정보들>
-  Map<int, Map<String, DeviceData>> menuMap = {0:{},1:{}}; // 1 : {macaddr, 서버에서 받아온 정보들}
+  Map<int, Map<String, DeviceData>> menuMap = {
+    0: {},
+    1: {}
+  }; // 1 : {macaddr, 서버에서 받아온 정보들}
   int _currentTabIndex = 0; // 현재 선택된 탭의 인덱스를 추적하는 변수
+  ValueNotifier<int> selectedDeviceId = ValueNotifier<int>(0); // 제목과 탭에 보여지는 정보에 해당하는 디바이스 번호
 
   @override
   void initState() {
@@ -57,15 +61,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       // when connection error ocurred
       print("channel: connection error");
     });
+
     _tabController = TabController(length: 0, vsync: this);
-    _tabController.addListener(() {
-      // 탭 컨트롤러의 리스너 추가
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
-        });
-      }
-    });
+    addTabControllerListener();
   }
 
   /// 서버에서 받아온 메시지를 처리하는 함수
@@ -96,44 +94,76 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         scancnt: scancnt,
       );
 
-      //TODO : message가 들어오면 menuMap에 추가를 해줘야하고, 탭뷰 ui 변경을 요청해야함
-      setState(() {
-        // menuMap에 device 아이디를 사용하여 데이터 추가 또는 업데이트, 현재 동작X
-        if (!menuMap.containsKey(device)) {
-          menuMap[device] = {};
-        }
-        menuMap[device]![macaddr] = deviceData;
-        print("rssi: menuMap $menuMap");
-      });
+      // macAddresses 리스트에 macaddr이 없는 경우 새로 추가 (2)
+      if (!macAddresses.contains(macaddr)) {
+        setState(() {
+          // menuMap에 device 아이디(0 or 1)를 사용하여 데이터 추가 또는 업데이트 (2-1)
+          if (!menuMap.containsKey(device)) {
+            menuMap[device] = {};
+          }
+          menuMap[device]![macaddr] = deviceData; // (2-1)
+
+          // (2-2) selectedDeviceId에 해당하는 Mac 주소가 추가됐다면
+          if (device == selectedDeviceId.value) {
+            // MAC 주소 목록 업데이트 (2-2-1)
+            deviceDataMap = menuMap[device]!;
+            macAddresses =
+                deviceDataMap.keys.toList();
+
+            // (2-2-2) 탭뷰 업데이트
+            int previousIndex = _tabController.index; // 현재 인덱스를 저장
+            _tabController.dispose(); // 기존의 탭 컨트롤러를 해제
+
+            // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
+            _tabController = TabController(
+                length: macAddresses.length,
+                vsync: this,
+                initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
+
+            // 탭 변경 시 이벤트를 처리
+            addTabControllerListener();
+          }
+        });
+      }
     }
   }
 
-  // 드롭다운에서 디바이스 이름이 선택됐을 때 콜백, 해당 디바이스에 해당하는 정보를 가져와 탭을 업데이트
-  void onDeviceSelected(int deviceId) {
-    // 선택된 디바이스 ID에 해당하는 menuMap에서 데이터를 가져옴
-    deviceDataMap = menuMap[deviceId]!;
-
-    setState(() {
-
-      macAddresses = deviceDataMap.keys.toList(); // MAC 주소 목록 업데이트
-
-      int previousIndex = _tabController.index; // 현재 인덱스를 저장
-      _tabController.dispose(); // 기존 탭 컨트롤러 해제
-
-      // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
-      _tabController = TabController(
-          length: macAddresses.length,
-          vsync: this,
-          initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
-
-      // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
-      _tabController.addListener(() {
-        if (!_tabController.indexIsChanging) {
-          _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
-        }
-      });
+  /// 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리하는 함수
+  void addTabControllerListener() {
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _currentTabIndex = _tabController.index;
+        });
+      }
     });
   }
+
+  // // 드롭다운에서 디바이스 이름이 선택됐을 때 콜백, 해당 디바이스에 해당하는 정보를 가져와 탭을 업데이트
+  // void onDeviceSelected(int deviceId) {
+  //   // 선택된 디바이스 ID에 해당하는 menuMap에서 데이터를 가져옴
+  //   deviceDataMap = menuMap[deviceId]!;
+  //
+  //   setState(() {
+  //     macAddresses = deviceDataMap.keys.toList(); // MAC 주소 목록 업데이트
+  //
+  //     int previousIndex = _tabController.index; // 현재 인덱스를 저장
+  //     _tabController.dispose(); // 기존 탭 컨트롤러 해제
+  //
+  //     // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
+  //     _tabController = TabController(
+  //         length: macAddresses.length,
+  //         vsync: this,
+  //         initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
+  //
+  //     // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
+  //     _tabController.addListener(() {
+  //       if (!_tabController.indexIsChanging) {
+  //         _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
+  //       }
+  //     });
+  //   });
+  // }
 
   /// '2024-03-30 02:41:24.736000' -> '2024년 3월 30일 2시 41분 24초'로 포맷을 변경해주는 함수
   String formatMeasureTime(String measuretime) {
@@ -159,7 +189,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       appBar: MyAppBar(
         tabController: _tabController,
         macAddresses: macAddresses,
-        onDeviceSelected: onDeviceSelected,
+        selectedDeviceId: selectedDeviceId,
       ),
       // TabBarView를 사용하여 각 탭에 해당하는 내용을 표시
       body: TabBarView(
