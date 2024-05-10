@@ -7,12 +7,14 @@ class MyAppBar extends StatefulWidget implements PreferredSizeWidget {
   final TabController tabController;
   final List<String> macAddresses;
   final ValueNotifier<int> selectedDeviceId;
+  final Function() updateMacAddresses; // main에서 선택된 디바이스에 따라 macAddress를 업데이트해줌
 
-  MyAppBar(
-      {required this.tabController,
-      required this.macAddresses,
-      required this.selectedDeviceId
-      });
+  MyAppBar({
+    required this.tabController,
+    required this.macAddresses,
+    required this.selectedDeviceId,
+    required this.updateMacAddresses,
+  });
 
   @override
   _MyAppBarState createState() => _MyAppBarState();
@@ -52,19 +54,28 @@ class _MyAppBarState extends State<MyAppBar> {
               '디바이스 $selectedDeviceId (${widget.tabController.index + 1}/${widget.tabController.length})');
         },
       ),
-      // title: Text(
-      //     '$title (${widget.tabController.index + 1}/${widget.tabController.length})'),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(50.0),
         child: Column(
           children: [
+            // ValueListenableBuilder<int>(
+            //   valueListenable: widget.selectedDeviceId,
+            //   builder: (context, selectedDeviceId, child) {
+            //     return TabBar(
+            //         controller: widget.tabController,
+            //         isScrollable: true,
+            //         tabs: widget.macAddresses
+            //             .map((macaddr) => Tab(text: macaddr))
+            //             .toList());
+            //   },
+            // ),
             TabBar(
               controller: widget.tabController,
               isScrollable: true,
               tabs: widget.macAddresses
                   .map((macaddr) => Tab(text: macaddr))
                   .toList(),
-            ),
+            )
           ],
         ),
       ),
@@ -73,10 +84,10 @@ class _MyAppBarState extends State<MyAppBar> {
           icon: Icon(Icons.arrow_drop_down),
           onSelected: (int deviceId) {
             widget.selectedDeviceId.value = deviceId;
-            // TODO : 탭뷰 업데이트,
-            setState(() {
-              title = '디바이스 $deviceId'; // 제목 업데이트
-            });
+            widget.updateMacAddresses();
+            // setState(() {
+            //   title = '디바이스 $deviceId'; // 제목 업데이트
+            // });
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
             const PopupMenuItem<int>(

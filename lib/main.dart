@@ -46,7 +46,8 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     1: {}
   }; // 1 : {macaddr, 서버에서 받아온 정보들}
   int _currentTabIndex = 0; // 현재 선택된 탭의 인덱스를 추적하는 변수
-  ValueNotifier<int> selectedDeviceId = ValueNotifier<int>(0); // 제목과 탭에 보여지는 정보에 해당하는 디바이스 번호
+  ValueNotifier<int> selectedDeviceId =
+      ValueNotifier<int>(0); // 제목과 탭에 보여지는 정보에 해당하는 디바이스 번호
 
   @override
   void initState() {
@@ -72,7 +73,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     final jsonResponse = json.decode(message);
 
     // 메시지 내용 출력
-    print("rssi: json msg $message");
+    print("setTab: json msg $message");
 
     // JSON 응답이 유효하고 'macaddr' 키가 존재하는지 확인
     if (jsonResponse != null && jsonResponse['macaddr'] != null) {
@@ -105,23 +106,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
 
           // (2-2) selectedDeviceId에 해당하는 Mac 주소가 추가됐다면
           if (device == selectedDeviceId.value) {
-            // MAC 주소 목록 업데이트 (2-2-1)
-            deviceDataMap = menuMap[device]!;
-            macAddresses =
-                deviceDataMap.keys.toList();
-
-            // (2-2-2) 탭뷰 업데이트
-            int previousIndex = _tabController.index; // 현재 인덱스를 저장
-            _tabController.dispose(); // 기존의 탭 컨트롤러를 해제
-
-            // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
-            _tabController = TabController(
-                length: macAddresses.length,
-                vsync: this,
-                initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
-
-            // 탭 변경 시 이벤트를 처리
-            addTabControllerListener();
+            updateMacAddresses();
           }
         });
       }
@@ -182,6 +167,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     }
   }
 
+  // 선택된 디바이스에 해당하는 MAC 주소 목록인 macAddress를 업데이트해주는 함수
+  void updateMacAddresses() {
+    print("setTab: updateMacAddresses // selectedDeviceId.value ${selectedDeviceId.value}");
+    // MAC 주소 목록 업데이트 (2-2-1)
+    deviceDataMap = menuMap[selectedDeviceId.value]!;
+    setState(() {
+      macAddresses = deviceDataMap.keys.toList();
+
+      // (2-2-2) 탭뷰 업데이트
+      int previousIndex = _tabController.index; // 현재 인덱스를 저장
+      _tabController.dispose(); // 기존의 탭 컨트롤러를 해제
+
+      // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
+      _tabController = TabController(
+          length: macAddresses.length,
+          vsync: this,
+          initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
+
+      // 탭 변경 시 이벤트를 처리
+      addTabControllerListener();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Scaffold 위젯을 반환하여 앱의 기본 레이아웃을 구성
@@ -190,6 +198,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         tabController: _tabController,
         macAddresses: macAddresses,
         selectedDeviceId: selectedDeviceId,
+        updateMacAddresses: updateMacAddresses,
       ),
       // TabBarView를 사용하여 각 탭에 해당하는 내용을 표시
       body: TabBarView(
