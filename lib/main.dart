@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:rssi_measure_app/constants/rssi_consts.dart';
 import 'package:web_socket_channel/io.dart';
 import 'device_data.dart';
 import 'package:intl/intl.dart';
+
+import 'my_appbar.dart';
 
 void main() {
   runApp(const MyApp());
@@ -37,23 +40,31 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   late IOWebSocketChannel channel; // 웹소켓 채널
   late TabController _tabController; // 탭 컨트롤러
   List<String> macAddresses = []; // 탭 제목을 표시하기 위한 macaddr만을 저장하는 변수
-  Map<String, DeviceData> deviceDataMap = {}; // <macaddr, 서버에서 받아온 정보들>
+  Map<String, DeviceData> deviceDataMap = {}; // macaddr, 서버에서 받아온 정보들
+  Map<int, Map<String, DeviceData>> menuMap = {
+    0: {},
+    1: {}
+  }; // 1 : {macaddr, 서버에서 받아온 정보들}
   int _currentTabIndex = 0; // 현재 선택된 탭의 인덱스를 추적하는 변수
+  ValueNotifier<int> selectedDeviceId =
+      ValueNotifier<int>(0); // 제목과 탭에 보여지는 정보에 해당하는 디바이스 번호
 
   @override
   void initState() {
     super.initState();
-    channel = IOWebSocketChannel.connect('ws://192.168.1.102:8080'); // 웹소켓 채널
-    channel.stream.listen(_onMessage);
-    _tabController = TabController(length: 0, vsync: this);
-    _tabController.addListener(() {
-      // 탭 컨트롤러의 리스너 추가
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
-        });
-      }
+    channel = IOWebSocketChannel.connect(RssiConsts.MY_URL_test); // 웹소켓 채널
+    print("channel: try channel ${RssiConsts.MY_URL_test}");
+
+    channel.stream.listen(_onMessage, onDone: () {
+      // when terminated
+      print("channel: end channel");
+    }, onError: (error) {
+      // when connection error ocurred
+      print("channel: connection error");
     });
+
+    _tabController = TabController(length: 0, vsync: this);
+    addTabControllerListener();
   }
 
   /// 서버에서 받아온 메시지를 처리하는 함수
@@ -62,19 +73,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     final jsonResponse = json.decode(message);
 
     // 메시지 내용 출력
-    print("rssi: json msg $message");
+    print("setTab: json msg $message");
 
     // JSON 응답이 유효하고 'macaddr' 키가 존재하는지 확인
     if (jsonResponse != null && jsonResponse['macaddr'] != null) {
-      // jsonResponse에서 필요한 데이터 추출, 값이 없으면 0 또는 빈 문자열로 대체
+      // jsonResponse에서 필요한 데이터 추출, 값이 없으면 기본값으로 대체
+      int device = jsonResponse['device'] ?? -1;
       String macaddr = jsonResponse['macaddr'] ?? '';
       int rssival = jsonResponse['rssival'] ?? 0;
-      double kalmanval = jsonResponse['kalmanval'].toDouble() ?? 0.0;
-      String measuretime = jsonResponse['measuretime'] ?? '';
+      int kalmanval = jsonResponse['kalmanval'].toInt() ?? 0;
+      String measuretime = jsonResponse['measuretime'].toString() ?? '';
       int scancnt = jsonResponse['scancnt'] ?? 0;
 
       // DeviceData 객체 생성
       DeviceData deviceData = DeviceData(
+        device: device,
         macaddr: macaddr,
         rssival: rssival,
         kalmanval: kalmanval,
@@ -82,50 +95,37 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         scancnt: scancnt,
       );
 
-      // macAddresses 리스트에 macaddr이 없는 경우 새로 추가
-      if (!macAddresses.contains(macaddr)) {
-        setState(() {
-          macAddresses.add(macaddr);
-          int previousIndex = _tabController.index; // 현재 인덱스를 저장
-          _tabController.dispose(); // 기존의 탭 컨트롤러를 해제
-
-          // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
-          _tabController = TabController(
-              length: macAddresses.length,
-              vsync: this,
-              initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
-
-          // 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리
-          _tabController.addListener(() {
-            if (!_tabController.indexIsChanging) {
-              setState(() {
-                _currentTabIndex = _tabController.index; // 현재 선택된 탭의 인덱스 업데이트
-              });
-            }
-          });
-        });
-      }
-
-      // deviceDataMap에 macaddr을 키로 하여 deviceData를 저장
+      // 메시지가 들어왔을 때, menuMap에 device(key), macaddr(key)의 value에 서버에서 받아온 정보를 저장
       setState(() {
-        deviceDataMap[macaddr] = deviceData;
+        menuMap[device]![macaddr] = deviceData;
+        if (device == selectedDeviceId.value) {
+          // MacAddress를 업데이트 하고, 탭 컨트롤러를 업데이트 해줌
+          updateMacAddresses();
+        }
       });
     }
   }
 
-  /// '20240327085015' -> '2024년 3월 27일 8시 50분 15초'로 포맷을 변경해주는 함수
+  /// 탭 컨트롤러의 리스너를 추가하여 탭 변경 시 이벤트를 처리하는 함수
+  void addTabControllerListener() {
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _currentTabIndex = _tabController.index;
+        });
+      }
+    });
+  }
+
+  /// '2024-03-30 02:41:24.736000' -> '2024년 3월 30일 2시 41분 24초'로 포맷을 변경해주는 함수
   String formatMeasureTime(String measuretime) {
     try {
-      // 입력된 문자열에서 연, 월, 일을 나타내는 부분과 시, 분, 초를 나타내는 부분 사이에 'T' 문자를 삽입
-      // ISO 8601 날짜 및 시간 형식을 따르기 위함
-      // "20240408123045" -> "20240408T123045"
-      String dateWithT =
-          measuretime.substring(0, 8) + 'T' + measuretime.substring(8);
-
-      // DateTime 객체 생성
-      DateTime dateTime = DateTime.parse(dateWithT);
+      // 입력된 문자열을 DateTime 객체로 직접 파싱
+      // "2024-03-30 02:41:24.736000" 형식을 지원
+      DateTime dateTime = DateTime.parse(measuretime);
 
       // 문자열 변환
+      // 'yyyy년 M월 d일 H시 m분 s초' 포맷으로 변환
       return DateFormat('yyyy년 M월 d일 H시 m분 s초').format(dateTime);
     } catch (e) {
       // 파싱 과정에서 오류가 발생하면 빈 문자열을 반환하고, 에러를 출력함
@@ -134,30 +134,39 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     }
   }
 
+  // 선택된 디바이스에 해당하는 MAC 주소 목록인 macAddress를 업데이트해주는 함수
+  void updateMacAddresses() {
+    print(
+        "setTab: updateMacAddresses // selectedDeviceId.value ${selectedDeviceId.value}");
+    // MAC 주소 목록 업데이트
+    deviceDataMap = menuMap[selectedDeviceId.value]!;
+    setState(() {
+      macAddresses = deviceDataMap.keys.toList();
+
+      // 탭뷰 업데이트
+      int previousIndex = _tabController.index; // 현재 인덱스를 저장
+      _tabController.dispose(); // 기존의 탭 컨트롤러를 해제
+
+      // 새로운 탭 컨트롤러를 생성하고 이전에 선택된 탭 인덱스를 초기 인덱스로 설정
+      _tabController = TabController(
+          length: macAddresses.length,
+          vsync: this,
+          initialIndex: previousIndex); // 이전 인덱스를 초기 인덱스로 설정
+
+      // 탭 변경 시 이벤트를 처리
+      addTabControllerListener();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Scaffold 위젯을 반환하여 앱의 기본 레이아웃을 구성
     return Scaffold(
-      appBar: AppBar(
-        // AppBar의 배경색을 앱 테마의 inversePrimary 색상으로 설정
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // AppBar의 제목 설정. 현재 선택된 탭의 인덱스와 전체 탭의 수를 표시
-        title: Text('${widget.title} (${_currentTabIndex + 1}/${_tabController.length})'),
-        // AppBar 하단에 추가적인 위젯을 배치하기 위한 설정
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(50.0), // 하단 위젯의 높이 설정
-          // Column 위젯을 사용하여 TabBar와 추가적인 위젯들을 세로로 배치
-          child: Column(
-            children: [
-              // TabBar 위젯을 사용하여 탭을 표시. 각 탭은 MAC 주소를 표시
-              TabBar(
-                controller: _tabController, // TabBar 컨트롤러 설정
-                isScrollable: true, // 여러 탭이 있을 경우 스크롤 가능하게 설정
-                tabs: macAddresses.map((macaddr) => Tab(text: macaddr)).toList(), // MAC 주소 리스트를 사용하여 탭 생성
-              ),
-            ],
-          ),
-        ),
+      appBar: MyAppBar(
+        tabController: _tabController,
+        macAddresses: macAddresses,
+        selectedDeviceId: selectedDeviceId,
+        updateMacAddresses: updateMacAddresses,
       ),
       // TabBarView를 사용하여 각 탭에 해당하는 내용을 표시
       body: TabBarView(
@@ -171,13 +180,29 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center, // 세로 방향으로 중앙 정렬
               crossAxisAlignment: CrossAxisAlignment.start, // 가로 방향으로 좌측 정렬
               children: [
-                // MAC 주소, RSSI 값, Kalman 값, 측정 시간, 스캔 횟수를 텍스트로 표시
+                // 디바이스이름, MAC 주소, RSSI 값, Kalman 값, 측정 시간, 스캔 횟수를 텍스트로 표시
                 // 각각의 값이 없을 경우를 대비하여 기본값 설정
                 RichText(
                   text: TextSpan(
-                    style: TextStyle(fontSize: 22.0, color: Colors.black, fontWeight: FontWeight.bold), // 기본 스타일
+                    style: TextStyle(fontSize: 18.0, color: Colors.black),
                     children: [
-                      TextSpan(text: 'Mac Address: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: 'Device Num: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(text: '${data?.device ?? -1}'),
+                    ],
+                  ),
+                ),
+                RichText(
+                  text: TextSpan(
+                    style: TextStyle(
+                        fontSize: 22.0,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold), // 기본 스타일
+                    children: [
+                      TextSpan(
+                          text: 'Mac Address: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: '${data?.macaddr ?? ''}'),
                     ],
                   ),
@@ -187,7 +212,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   text: TextSpan(
                     style: TextStyle(fontSize: 18.0, color: Colors.black),
                     children: [
-                      TextSpan(text: 'RSSI Value: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: 'RSSI Value: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: '${data?.rssival ?? 0}'),
                     ],
                   ),
@@ -197,7 +224,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   text: TextSpan(
                     style: TextStyle(fontSize: 18.0, color: Colors.black),
                     children: [
-                      TextSpan(text: 'Kalman Value: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: 'Kalman Value: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: '${data?.kalmanval ?? 0.0}'),
                     ],
                   ),
@@ -207,8 +236,13 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   text: TextSpan(
                     style: TextStyle(fontSize: 18.0, color: Colors.black),
                     children: [
-                      TextSpan(text: 'Measure Time: ', style: TextStyle(fontWeight: FontWeight.bold)),
-                      TextSpan(text: '${formatMeasureTime(data?.measuretime ?? '')}', style: TextStyle(fontSize: 15.0)),
+                      TextSpan(
+                          text: 'Measure Time: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: '${formatMeasureTime(data?.measuretime ?? '')}',
+                          // text: '${data?.measuretime ?? ''}',
+                          style: TextStyle(fontSize: 15.0)),
                     ],
                   ),
                 ),
@@ -217,7 +251,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   text: TextSpan(
                     style: TextStyle(fontSize: 18.0, color: Colors.black),
                     children: [
-                      TextSpan(text: 'Scan Count: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: 'Scan Count: ',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       TextSpan(text: '${data?.scancnt ?? 0}'),
                     ],
                   ),
@@ -229,7 +265,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       ),
     );
   }
-
 
   @override
   void dispose() {
